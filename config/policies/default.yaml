@@ -1,0 +1,125 @@
+# Rungate Default Policy Configuration
+# ======================================
+# Copy and customize for your agents.
+
+# Operating mode: enforce | monitor | dry-run
+mode: enforce
+
+# Agent policies
+policies:
+  # Default policy — applies to any agent without a specific policy
+  default:
+    mode: deny  # deny-by-default: only explicitly allowed tools work
+    tools:
+      web_search: allow
+      read_file: allow
+
+  # Example: Research agent — mostly allowed, some tools blocked
+  researcher:
+    mode: allow  # allow-by-default: only blocked tools are stopped
+    tools:
+      delete_file: block
+      execute_code: block
+      send_email: block
+    conditions:
+      - tool: web_search
+        block_if:
+          query_contains: ["password", "credential", "secret", "api_key"]
+
+  # Example: Code agent — inherits from default, adds execute_code
+  code_agent:
+    inherits: default
+    tools:
+      execute_code: allow
+      write_file:
+        action: allow
+        constraints:
+          path_pattern: "^/tmp/.*"  # Only allow writes to /tmp
+
+# Schema validation for tool arguments
+schemas:
+  web_search:
+    type: object
+    required: [query]
+    properties:
+      query:
+        type: string
+        minLength: 1
+        maxLength: 1000
+      max_results:
+        type: integer
+        minimum: 1
+        maximum: 100
+
+  send_email:
+    type: object
+    required: [to, subject, body]
+    properties:
+      to:
+        type: string
+        pattern: "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
+      subject:
+        type: string
+        maxLength: 200
+      body:
+        type: string
+
+  execute_code:
+    type: object
+    required: [code]
+    properties:
+      code:
+        type: string
+        maxLength: 10000
+      language:
+        type: string
+        enum: [python, javascript, bash]
+
+# Rate limits
+rate_limits:
+  global:
+    max_calls: 1000
+    window_seconds: 60
+  per_agent:
+    researcher:
+      max_calls: 100
+      window_seconds: 60
+  per_tool:
+    execute_code:
+      max_calls: 20
+      window_seconds: 60
+    send_email:
+      max_calls: 5
+      window_seconds: 300
+
+# Cost tracking
+cost:
+  default_cost: 0.001
+  tool_costs:
+    web_search: 0.01
+    execute_code: 0.05
+    send_email: 0.001
+    gpt4_call: 0.03
+  budgets:
+    global: 100.0
+    per_agent:
+      researcher: 10.0
+      code_agent: 20.0
+  kill_on_budget: true
+  warn_at_percent: 80
+
+# Audit logging
+audit:
+  backend: sqlite
+  path: rungate_audit.db
+
+# Alerts
+alerts:
+  channels:
+    - type: log
+      events: ["*"]
+    # Uncomment to add Slack alerts:
+    # - type: slack
+    #   webhook_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+    #   channel: "#agent-alerts"
+    #   events: [kill_switch, budget_exceeded, policy_violation]
