@@ -33,7 +33,7 @@ Existing guardrails validate LLM *outputs* (text/content). Rungate validates LLM
 ## Quick Start
 
 ```bash
-pip install rungate
+pip install rungate-ai
 ```
 
 ```python
@@ -110,11 +110,11 @@ else:
 The core library uses only Python stdlib. Optional dependencies unlock extra features:
 
 ```bash
-pip install rungate              # Core (stdlib only)
-pip install rungate[yaml]        # + YAML config support
-pip install rungate[schema]      # + jsonschema validation
-pip install rungate[server]      # + FastAPI SaaS server
-pip install rungate[all]         # Everything
+pip install rungate-ai              # Core (stdlib only)
+pip install rungate-ai[yaml]        # + YAML config support
+pip install rungate-ai[schema]      # + jsonschema validation
+pip install rungate-ai[server]      # + FastAPI SaaS server
+pip install rungate-ai[all]         # Everything
 ```
 
 ### Three Operating Modes
@@ -197,7 +197,7 @@ gate.unkill()
 Run Rungate as a hosted validation service:
 
 ```bash
-pip install rungate[server]
+pip install rungate-ai[server]
 rungate-server --port 8000
 ```
 

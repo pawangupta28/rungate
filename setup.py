@@ -6,7 +6,7 @@ with open("README.md", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="rungate",
+    name="rungate-ai",
     version="0.1.0",
     author="Pawan Gupta",
     description="Runtime validation middleware for AI agent tool-calls",
