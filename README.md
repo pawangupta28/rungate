@@ -294,7 +294,7 @@ stats = gate.stats()
 Contributions are welcome. Please open an issue to discuss before submitting a PR.
 
 ```bash
-git clone https://github.com/pawan-kumar/rungate
+git clone https://github.com/pawangupta28/rungate
 cd rungate
 pip install -e ".[dev]"
 pytest tests/ -v

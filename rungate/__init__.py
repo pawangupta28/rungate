@@ -13,7 +13,7 @@ Usage:
 """
 
 __version__ = "0.1.0"
-__author__ = "Rungate Contributors"
+__author__ = "Pawan Gupta"
 __license__ = "BUSL-1.1"
 
 from rungate.core.interceptor import Rungate
