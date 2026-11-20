@@ -530,3 +530,11 @@ class TestBudgetPrecision:
         results = [gate.call(agent="a", tool="t", args={}) for _ in range(4)]
         assert [r.allowed for r in results] == [True, True, True, False]
         assert results[3].status == CallStatus.BLOCKED_KILL_SWITCH
+
+
+class TestNotInCondition:
+    def test_not_in_blocks_listed_values_only(self):
+        engine = PolicyEngine({"default": {"mode": "allow", "conditions": [
+            {"tool": "deploy", "block_if": {"env_not_in": ["prod"]}}]}})
+        assert engine.evaluate("a", "deploy", {"env": "prod"}) == PolicyDecision.BLOCK
+        assert engine.evaluate("a", "deploy", {"env": "staging"}) == PolicyDecision.ALLOW

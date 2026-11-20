@@ -21,3 +21,5 @@ rungate_demo_audit.jsonl
 # Secrets
 .env
 .env.*
+demo_workspace/
+rungate_data_audit.jsonl

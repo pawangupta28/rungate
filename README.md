@@ -102,6 +102,22 @@ Covers: allowed calls, policy blocks, argument-level conditions (credential hunt
 (exfiltration to a foreign email domain), deny-by-default, rate limiting, budget cap → automatic kill switch,
 manual kill switch, and monitor mode — followed by the full audit trail.
 
+**On real data — with vs. without Rungate.** Builds a fake company workspace (200 customers, 1,000 orders,
+prod secrets, logs), runs the same agent twice and prints a damage report:
+
+```bash
+python examples/data_demo.py            # scripted, deterministic
+python examples/data_demo.py --live     # real LLM decides (needs GROQ_API_KEY)
+```
+
+```
+                                            start    no Rungate   with Rungate
+   Customer records in customers.csv          200             0            200
+   Orders in orders.db                       1000           916           1000
+   Customer records emailed outside             0           200              0
+   Prod DB password revealed to user           no           yes             no
+```
+
 **Live LLM agent** — a real model chooses the tool-calls, Rungate enforces policy (stdlib only, uses Groq):
 
 ```bash

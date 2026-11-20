@@ -107,18 +107,18 @@ class PolicyCondition:
                     except (ValueError, TypeError):
                         pass
 
-            elif rule_key.endswith("_in"):
-                # Value must be in allowed list
-                arg_name = rule_key.replace("_in", "")
-                arg_val = args.get(arg_name)
-                if isinstance(rule_value, list) and arg_val not in rule_value:
-                    return True
-
             elif rule_key.endswith("_not_in"):
                 # Value must NOT be in blocked list
-                arg_name = rule_key.replace("_not_in", "")
+                arg_name = rule_key[: -len("_not_in")]
                 arg_val = args.get(arg_name)
                 if isinstance(rule_value, list) and arg_val in rule_value:
+                    return True
+
+            elif rule_key.endswith("_in"):
+                # Value must be in allowed list
+                arg_name = rule_key[: -len("_in")]
+                arg_val = args.get(arg_name)
+                if isinstance(rule_value, list) and arg_val not in rule_value:
                     return True
 
         return False
