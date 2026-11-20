@@ -90,6 +90,25 @@ else:
     print(f"Blocked: {result.error}")
 ```
 
+## See It In Action
+
+```bash
+git clone https://github.com/pawangupta28/rungate && cd rungate
+python examples/demo.py          # 9 scenes, no API key, deterministic
+python examples/demo.py --step   # pause between scenes (for walkthroughs)
+```
+
+Covers: allowed calls, policy blocks, argument-level conditions (credential hunting), schema validation
+(exfiltration to a foreign email domain), deny-by-default, rate limiting, budget cap → automatic kill switch,
+manual kill switch, and monitor mode — followed by the full audit trail.
+
+**Live LLM agent** — a real model chooses the tool-calls, Rungate enforces policy (stdlib only, uses Groq):
+
+```bash
+export GROQ_API_KEY=...          # Windows PowerShell: $env:GROQ_API_KEY="..."
+python examples/demo.py --live
+```
+
 ## Features
 
 ### 8 Core Modules

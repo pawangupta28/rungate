@@ -39,6 +39,10 @@ class CostEntry:
     timestamp: float = field(default_factory=time.time)
 
 
+# Tolerance for float comparisons on money (avoids 0.03 - 0.02 < 0.01 surprises)
+_EPS = 1e-9
+
+
 class CostTracker:
     """
     Tracks tool-call costs and enforces budgets.
@@ -100,13 +104,13 @@ class CostTracker:
             # Check agent budget
             if agent in self._agent_budgets:
                 agent_remaining = self._agent_budgets[agent] - self._agent_spent[agent]
-                if cost > agent_remaining:
+                if cost > agent_remaining + _EPS:
                     return False
 
             # Check global budget
             if self._global_budget is not None:
                 global_remaining = self._global_budget - self._global_spent
-                if cost > global_remaining:
+                if cost > global_remaining + _EPS:
                     return False
 
         return True
@@ -130,12 +134,12 @@ class CostTracker:
         with self._lock:
             # Check agent budget
             if agent in self._agent_budgets:
-                if self._agent_spent[agent] >= self._agent_budgets[agent]:
+                if self._agent_spent[agent] >= self._agent_budgets[agent] - _EPS:
                     return True
 
             # Check global budget
             if self._global_budget is not None:
-                if self._global_spent >= self._global_budget:
+                if self._global_spent >= self._global_budget - _EPS:
                     return True
 
         return False

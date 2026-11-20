@@ -516,3 +516,17 @@ class TestAsync:
         )
         assert result.allowed is True
         assert result.result == "async result"
+
+
+# ─── Regression: float precision in budgets ────────────────────────
+
+class TestBudgetPrecision:
+    def test_exact_budget_allows_last_call_then_kills(self):
+        gate = Rungate({
+            "policies": {"default": {"mode": "allow"}},
+            "cost": {"tool_costs": {"t": 0.01}, "budgets": {"per_agent": {"a": 0.03}}},
+            "audit": {"backend": "none"},
+        })
+        results = [gate.call(agent="a", tool="t", args={}) for _ in range(4)]
+        assert [r.allowed for r in results] == [True, True, True, False]
+        assert results[3].status == CallStatus.BLOCKED_KILL_SWITCH

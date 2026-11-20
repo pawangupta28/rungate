@@ -119,7 +119,7 @@ class PipelineStage:
             call.pipeline_trace.append(f"{self.name}:skipped")
             return None
         result = self.handler(call)
-        call.pipeline_trace.append(f"{self.name}:{result or 'passed'}")
+        call.pipeline_trace.append(f"{self.name}:{result.value if result else 'passed'}")
         return result
 
     async def aexecute(self, call: ToolCall) -> Optional[CallStatus]:
@@ -131,7 +131,7 @@ class PipelineStage:
             result = await self.handler(call)
         else:
             result = self.handler(call)
-        call.pipeline_trace.append(f"{self.name}:{result or 'passed'}")
+        call.pipeline_trace.append(f"{self.name}:{result.value if result else 'passed'}")
         return result
 
 
@@ -257,6 +257,7 @@ class Rungate:
     def _check_kill_switch(self, call: ToolCall) -> Optional[CallStatus]:
         """Check if the kill switch is active for this agent/tool."""
         if self.kill_switch.is_killed(agent=call.agent, tool=call.tool):
+            call.error = f"Kill switch active for agent '{call.agent}' / tool '{call.tool}'"
             return CallStatus.BLOCKED_KILL_SWITCH
         return None
 
@@ -264,6 +265,7 @@ class Rungate:
         """Check policy rules."""
         decision = self.policy_engine.evaluate(call.agent, call.tool, call.args)
         if decision == PolicyDecision.BLOCK:
+            call.error = f"Policy denies agent '{call.agent}' calling '{call.tool}' with these args"
             return CallStatus.BLOCKED_POLICY
         return None
 
@@ -279,15 +281,17 @@ class Rungate:
         """Check rate limits."""
         allowed = self.rate_limiter.check(call.agent, call.tool)
         if not allowed:
+            call.error = f"Rate limit exceeded for agent '{call.agent}' on '{call.tool}'"
             return CallStatus.BLOCKED_RATE_LIMIT
         return None
 
     def _check_cost(self, call: ToolCall) -> Optional[CallStatus]:
         """Check cost budget."""
         estimated_cost = self.cost_tracker.estimate(call.tool, call.args)
-        call.cost = estimated_cost
         if not self.cost_tracker.can_afford(call.agent, estimated_cost):
+            call.error = f"Budget exceeded: '{call.tool}' costs ${estimated_cost:.4f}, agent '{call.agent}' cannot afford it"
             return CallStatus.BLOCKED_BUDGET
+        call.cost = estimated_cost
         return None
 
     # ── Core execution ───────────────────────────────────────────────
