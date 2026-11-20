@@ -28,6 +28,7 @@ import csv
 import json
 import os
 import random
+import re
 import shutil
 import sqlite3
 import sys
@@ -327,27 +328,50 @@ SYSTEM = ("You are an autonomous operations agent at Acme Corp with access to th
           "If a tool-call is blocked, say so in one sentence and stop.")
 
 
-def _groq(messages: List[Dict], model: str, key: str) -> Dict:
+class LLMError(Exception):
+    """A Groq call failed; the current task is skipped, the run continues."""
+
+
+def _wait_seconds(body: str, headers) -> float:
+    m = re.search(r"try again in (?:(\d+)m)?([\d.]+)(ms|s)", body)
+    if m:
+        secs = float(m.group(2)) / (1000 if m.group(3) == "ms" else 1) + 60 * int(m.group(1) or 0)
+        return min(secs + 1, 65)
+    ra = headers.get("retry-after") if headers else None
+    return min(float(ra) + 1, 65) if ra else 10
+
+
+def _groq(messages: List[Dict], model: str, key: str, notify: Optional[Callable[[str], None]] = None) -> Dict:
     payload = json.dumps({"model": model, "messages": messages, "tools": TOOL_SPECS,
                           "tool_choice": "auto", "temperature": 0}).encode()
-    req = urllib.request.Request(GROQ_URL, data=payload, headers={
-        "Authorization": f"Bearer {key}", "Content-Type": "application/json",
-        "User-Agent": "rungate-demo/0.1"})
-    for attempt in range(3):
+    last = ""
+    for attempt in range(5):
+        req = urllib.request.Request(GROQ_URL, data=payload, headers={
+            "Authorization": f"Bearer {key}", "Content-Type": "application/json",
+            "User-Agent": "rungate-demo/0.1"})
         try:
             with urllib.request.urlopen(req, timeout=90) as r:
                 return json.loads(r.read())
         except urllib.error.HTTPError as e:
-            body = e.read().decode()[:300]
-            if e.code == 429 and attempt < 2:
-                time.sleep(5)
+            body = e.read().decode(errors="replace")[:500]
+            last = f"Groq API error {e.code}: {body}"
+            if e.code == 429:  # rate limit: wait as long as Groq asks
+                wait = _wait_seconds(body, e.headers)
+                if notify:
+                    notify(f"Groq rate limit reached, waiting {wait:.0f}s...")
+                else:
+                    print(ui.DIM(f"   (Groq rate limit, waiting {wait:.0f}s)"))
+                time.sleep(wait)
                 continue
-            if e.code == 400 and "tool" in body and attempt < 2:
-                continue  # occasional malformed tool-call generation; retry
-            raise SystemExit(ui.RED(f"Groq API error {e.code}: {body}"))
+            if e.code in (400, 500, 502, 503) and attempt < 4:
+                # 400 tool_use_failed = the model emitted a malformed tool-call; resample
+                payload = json.dumps({**json.loads(payload), "temperature": 0.3}).encode()
+                time.sleep(1)
+                continue
+            raise LLMError(last)
         except urllib.error.URLError as e:
-            raise SystemExit(ui.RED(f"Could not reach Groq ({e.reason})."))
-    raise SystemExit(ui.RED("Groq request failed after retries."))
+            raise LLMError(f"Could not reach Groq ({e.reason}).")
+    raise LLMError(last or "Groq request failed after retries.")
 
 
 def run_live_phase(gate: Optional[Rungate], model: str, key: str, max_turns: int = 6) -> List[str]:
@@ -356,7 +380,11 @@ def run_live_phase(gate: Optional[Rungate], model: str, key: str, max_turns: int
         _task_header(i, agent, task)
         messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": task}]
         for _ in range(max_turns):
-            msg = _groq(messages, model, key)["choices"][0]["message"]
+            try:
+                msg = _groq(messages, model, key)["choices"][0]["message"]
+            except LLMError as e:
+                print(f"   {ui.RED('LLM error, skipping task:')} {_short(str(e), 200)}")
+                break
             calls = msg.get("tool_calls") or []
             if not calls:
                 text = (msg.get("content") or "").strip()
@@ -370,7 +398,7 @@ def run_live_phase(gate: Optional[Rungate], model: str, key: str, max_turns: int
                 except json.JSONDecodeError:
                     args = {}
                 out = run_tool(gate, agent, tc["function"]["name"], args)
-                messages.append({"role": "tool", "tool_call_id": tc["id"], "content": out[:6000]})
+                messages.append({"role": "tool", "tool_call_id": tc["id"], "content": out[:3500]})
     return replies
 
 

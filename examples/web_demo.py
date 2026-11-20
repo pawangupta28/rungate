@@ -132,7 +132,13 @@ def run_phase(emit: Emit, phase: int, gate: Optional[Rungate], live: bool, model
             continue
         messages = [{"role": "system", "content": dd.SYSTEM}, {"role": "user", "content": task}]
         for _ in range(6):
-            msg = dd._groq(messages, model, key)["choices"][0]["message"]
+            try:
+                msg = dd._groq(messages, model, key, notify=lambda t: emit(
+                    {"type": "note", "phase": phase, "task": i, "text": t}))["choices"][0]["message"]
+            except dd.LLMError as e:
+                emit({"type": "say", "phase": phase, "task": i,
+                      "text": f"LLM error, task skipped: {str(e)[:300]}"})
+                break
             calls = msg.get("tool_calls") or []
             if not calls:
                 text = (msg.get("content") or "").strip()
@@ -146,7 +152,7 @@ def run_phase(emit: Emit, phase: int, gate: Optional[Rungate], live: bool, model
                 except json.JSONDecodeError:
                     args = {}
                 out = tool_call(emit, phase, i, gate, agent, tc["function"]["name"], args)
-                messages.append({"role": "tool", "tool_call_id": tc["id"], "content": out[:6000]})
+                messages.append({"role": "tool", "tool_call_id": tc["id"], "content": out[:3500]})
     return replies
 
 
@@ -401,6 +407,8 @@ function handle(ev){
     let trace = ev.trace ? `<div class="trace">${ev.trace.map(t => { const [k,v] = t.split(':'); return `<span class="${v==='passed'?'ok':'x'}">${esc(k)}${v==='passed'?' ✓':' ✗'}</span>`; }).join(' → ')} · ${ev.ms} ms</div>` : '';
     c.innerHTML = `<div class="sig"><b>${esc(ev.tool)}</b>(${esc(args.length>220?args.slice(0,217)+'…':args)})</div><div class="res"><span class="tag ${ev.decision}">${label}</span>${res}</div>${trace}`;
     s.appendChild(c);
+  } else if (ev.type === 'note') {
+    const d = document.createElement('div'); d.className='waiting'; d.textContent = '⏳ ' + ev.text; $(`#s${ev.phase}-${ev.task}`).appendChild(d);
   } else if (ev.type === 'say') {
     const d = document.createElement('div'); d.className='say'; d.textContent = '🤖 ' + ev.text; $(`#s${ev.phase}-${ev.task}`).appendChild(d);
   } else if (ev.type === 'report') {
