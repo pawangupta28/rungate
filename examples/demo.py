@@ -296,6 +296,9 @@ def _groq(messages: List[Dict], model: str, key: str) -> Dict:
             return json.loads(r.read())
     except urllib.error.HTTPError as e:
         raise SystemExit(RED(f"Groq API error {e.code}: {e.read().decode()[:300]}"))
+    except urllib.error.URLError as e:
+        raise SystemExit(RED(f"Could not reach Groq ({e.reason}). Check internet/proxy, "
+                             "or run the scripted demo without --live."))
 
 
 def run_live(model: str, max_turns: int = 4) -> Rungate:
