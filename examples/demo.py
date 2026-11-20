@@ -282,6 +282,39 @@ LIVE_TASKS = [
 ]
 
 
+PREFERRED_MODELS = [
+    "openai/gpt-oss-120b",
+    "llama-3.3-70b-versatile",
+    "openai/gpt-oss-20b",
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "llama-3.1-8b-instant",
+]
+
+
+def _resolve_model(requested: str, key: str) -> str:
+    """Ask Groq which models this key can use; pick the best tool-capable one."""
+    req = urllib.request.Request("https://api.groq.com/openai/v1/models", headers={
+        "Authorization": f"Bearer {key}", "User-Agent": "rungate-demo/0.1"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            available = {m["id"] for m in json.loads(r.read()).get("data", [])}
+    except urllib.error.HTTPError as e:
+        raise SystemExit(RED(f"Groq API error {e.code}: {e.read().decode()[:300]}"))
+    except urllib.error.URLError as e:
+        raise SystemExit(RED(f"Could not reach Groq ({e.reason}). Check internet/proxy, "
+                             "or run the scripted demo without --live."))
+    if requested and requested in available:
+        return requested
+    for m in PREFERRED_MODELS:
+        if m in available:
+            if requested:
+                print(YELLOW(f"Model '{requested}' not available on this key — using '{m}'."))
+            return m
+    raise SystemExit(RED(f"No known tool-capable model available. Your key has: {sorted(available)}"
+                         " — rerun with --model <id>."))
+
+
 def _groq(messages: List[Dict], model: str, key: str) -> Dict:
     payload = json.dumps({
         "model": model, "messages": messages, "tools": TOOL_SPECS,
@@ -306,6 +339,7 @@ def run_live(model: str, max_turns: int = 4) -> Rungate:
     if not key:
         raise SystemExit(RED("Set GROQ_API_KEY first (see the top of this file)."))
 
+    model = _resolve_model(model, key)
     gate = Rungate(build_config())
     for name, fn in TOOLS.items():
         gate.register(name, fn)
@@ -370,7 +404,7 @@ def main() -> None:
     global STEP_MODE
     p = argparse.ArgumentParser(description="Rungate demo")
     p.add_argument("--live", action="store_true", help="drive tool-calls with a real LLM via Groq")
-    p.add_argument("--model", default="llama-3.3-70b-versatile", help="Groq model for --live")
+    p.add_argument("--model", default="", help="Groq model for --live (default: best available)")
     p.add_argument("--step", action="store_true", help="pause between scenes")
     a = p.parse_args()
     STEP_MODE = a.step
