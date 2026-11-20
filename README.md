@@ -118,6 +118,13 @@ python examples/data_demo.py --live     # real LLM decides (needs GROQ_API_KEY)
    Prod DB password revealed to user           no           yes             no
 ```
 
+**In the browser** — the same with-vs-without demo as a local web app (side-by-side tasks,
+damage report, data explorer for customers, orders, outbox, audit log and policy):
+
+```bash
+python examples/web_demo.py      # opens http://localhost:8000
+```
+
 **Live LLM agent** — a real model chooses the tool-calls, Rungate enforces policy (stdlib only, uses Groq):
 
 ```bash
