@@ -17,3 +17,7 @@ venv/
 
 # Demo output
 rungate_demo_audit.jsonl
+
+# Secrets
+.env
+.env.*

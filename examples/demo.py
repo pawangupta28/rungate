@@ -13,6 +13,8 @@ Live mode needs a Groq key in the environment (never hard-code it):
   export GROQ_API_KEY=...              # macOS / Linux
   $env:GROQ_API_KEY="..."              # Windows PowerShell
 
+Or put it in a `.env` file in the repo root (git-ignored):  GROQ_API_KEY=...
+
 Live mode uses only the Python standard library (no openai / groq package needed).
 """
 
@@ -33,6 +35,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from rungate import Rungate  # noqa: E402
 from rungate.core.audit import AuditEvent  # noqa: E402
+
+def _load_dotenv() -> None:
+    """Minimal .env loader (stdlib only). Existing env vars take precedence."""
+    for path in (Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"):
+        if path.is_file():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+            return
+
+
+_load_dotenv()
 
 # ── Terminal styling ─────────────────────────────────────────────────
 
